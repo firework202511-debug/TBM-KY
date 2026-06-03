@@ -1,7 +1,7 @@
 // ================== 全域設定 ==================
 const CONFIG = {
   // ⚠️ 改成你的 TBM-KY Worker 網址
-  API_ENDPOINT: 'https://tbm-ky-api.YOUR_WORKER.workers.dev',
+  API_ENDPOINT: 'https://tbmky-api.firework202511.workers.dev',
 };
 
 // 固定必傳照片
