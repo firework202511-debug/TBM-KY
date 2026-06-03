@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TBM-KY 通報系統</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Microsoft JhengHei', Arial, sans-serif;
+      background: linear-gradient(135deg, #1a5c38 0%, #0d7490 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    h1 {
+      text-align: center;
+      color: white;
+      margin-bottom: 20px;
+      font-size: 2.2em;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .sheet-link-container { text-align: center; margin-bottom: 25px; }
+    .sheet-link-btn {
+      display: inline-block;
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      border: 1px solid rgba(255,255,255,0.6);
+      padding: 8px 20px;
+      border-radius: 50px;
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(5px);
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      font-size: 0.95em;
+    }
+    .sheet-link-btn:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab {
+      flex: 1;
+      padding: 14px;
+      background: rgba(255,255,255,0.9);
+      border: none;
+      border-radius: 10px 10px 0 0;
+      cursor: pointer;
+      font-size: 0.95em;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+    .tab:hover { background: white; transform: translateY(-2px); }
+    .tab.active { background: white; border-bottom: 4px solid #1a5c38; }
+
+    .form-container {
+      background: white;
+      padding: 30px;
+      border-radius: 0 0 15px 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      display: none;
+    }
+    .form-container.active { display: block; }
+
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 8px; color: #333; font-weight: bold; }
+
+    input[type="text"], input[type="datetime-local"], input[type="tel"],
+    input[type="date"], select, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1em;
+      transition: border-color 0.3s;
+      font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #1a5c38;
+    }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+    /* 條件切換區塊 */
+    .conditional-block {
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      background: #f9f9f9;
+    }
+    .conditional-block.active-block {
+      border-color: #1a5c38;
+      background: #f0faf6;
+    }
+    .conditional-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 0;
+      flex-wrap: wrap;
+    }
+    .conditional-header label {
+      margin: 0;
+      font-size: 1em;
+      color: #333;
+      flex: 1;
+      min-width: 200px;
+    }
+    .toggle-group { display: flex; gap: 8px; align-items: center; }
+    .toggle-btn {
+      padding: 6px 22px;
+      border: 1.5px solid #ccc;
+      border-radius: 20px;
+      background: white;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: 600;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .toggle-btn.selected-yes { background: #1a5c38; color: white; border-color: #1a5c38; }
+    .toggle-btn.selected-no  { background: #c0392b; color: white; border-color: #c0392b; }
+    .sub-uploads {
+      display: none;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1.5px dashed #1a5c38;
+    }
+    .sub-uploads.show { display: block; }
+
+    /* 上傳區塊 */
+    .photo-upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 13px;
+      margin-bottom: 16px;
+    }
+    .upload-box {
+      border: 1.5px dashed #ccc;
+      border-radius: 10px;
+      padding: 14px;
+      background: #f5f6f8;
+    }
+    .upload-box.has-file { border-color: #0f7b5a; border-style: solid; }
+    .upload-box-label {
+      font-size: .78rem;
+      font-weight: 700;
+      color: #555;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .upload-num {
+      width: 19px; height: 19px; border-radius: 50%;
+      background: #1a5c38; color: #fff;
+      font-size: .65rem; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .badge-req { font-size: .62rem; background: #fdf2f1; color: #c0392b; border-radius: 3px; padding: 1px 5px; font-weight: 600; }
+    .badge-opt { font-size: .62rem; background: #f0f7f9; color: #0d7490; border-radius: 3px; padding: 1px 5px; font-weight: 600; }
+    .drop-area {
+      border: 1px dashed #ccc;
+      border-radius: 6px; padding: 10px;
+      text-align: center; cursor: pointer; background: #fff;
+    }
+    .drop-area:hover { border-color: #1a5c38; background: #f0faf6; }
+    .preview-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    .thumb-wrap { position: relative; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; }
+    .thumb-wrap img { width: 54px; height: 54px; object-fit: cover; display: block; }
+    .rm-btn {
+      position: absolute; top: 2px; right: 2px;
+      width: 15px; height: 15px; border-radius: 50%;
+      background: rgba(0,0,0,.55); color: #fff;
+      font-size: .58rem; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* 摘要資訊欄 */
+    .auto-info-box {
+      background: #eef7f2;
+      border: 1px solid #a7d7bc;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .ai-item { display: flex; flex-direction: column; gap: 3px; }
+    .ai-lbl { font-size: .68rem; font-weight: 700; color: #8e97aa; text-transform: uppercase; }
+    .ai-val { font-size: .9rem; font-weight: 600; color: #1a5c38; }
+
+    /* 步驟指示 */
+    .steps {
+      display: flex; align-items: center;
+      margin-bottom: 24px; padding: 14px 18px;
+      background: #f0faf6; border-radius: 10px;
+    }
+    .step { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .step-dot {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 700;
+      background: #e0e0e0; color: #888; border: 2px solid #ccc; flex-shrink: 0;
+    }
+    .step.on .step-dot { background: #1a5c38; color: white; border-color: #1a5c38; }
+    .step.ok .step-dot { background: #0f7b5a; color: white; border-color: #0f7b5a; }
+    .step-txt { font-size: .8rem; color: #888; }
+    .step.on .step-txt { color: #1a5c38; font-weight: 600; }
+    .step.ok .step-txt { color: #0f7b5a; }
+    .step-line { flex: none; width: 28px; height: 2px; background: #dde; margin: 0 4px; }
+    .step-line.ok { background: #0f7b5a; }
+
+    .submit-btn {
+      width: 100%; padding: 15px;
+      background: linear-gradient(135deg, #1a5c38 0%, #0d7490 100%);
+      color: white; border: none; border-radius: 8px;
+      font-size: 1.1em; font-weight: bold; cursor: pointer;
+      transition: transform 0.2s; font-family: inherit;
+    }
+    .submit-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(26,92,56,0.4); }
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .next-btn {
+      width: 100%; padding: 14px;
+      background: #1a5c38; color: white;
+      border: none; border-radius: 8px;
+      font-size: 1.1em; font-weight: bold;
+      cursor: pointer; font-family: inherit; transition: background 0.2s;
+    }
+    .next-btn:hover:not(:disabled) { background: #145030; }
+    .next-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .back-btn {
+      width: 100%; padding: 10px;
+      background: transparent; color: #666;
+      border: 1.5px solid #ddd; border-radius: 8px;
+      font-size: .9em; cursor: pointer; margin-top: 12px; font-family: inherit;
+    }
+    .back-btn:hover { background: #f5f5f5; }
+
+    .loading { display: none; text-align: center; color: #1a5c38; margin-top: 10px; }
+    .status { margin-top: 8px; padding: 8px; border-radius: 5px; font-size: .9em; min-height: 20px; }
+
+    .pdf-preview-area {
+      margin-top: 18px; padding: 16px;
+      background: #f0f2f6; border: 1px solid #dde1ea;
+      border-radius: 10px; display: none;
+    }
+    .pdf-preview-area.show { display: block; }
+    .btn-preview {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px; background: #fffbeb; color: #b45309;
+      border: 1.5px solid #b45309; border-radius: 6px;
+      font-size: .9em; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: all .15s;
+    }
+    .btn-preview:hover { background: #b45309; color: white; }
+
+    /* 查詢 */
+    .result-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .result-table th, .result-table td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: .9em; }
+    .result-table th { background-color: #f2f2f2; color: #333; font-weight: bold; }
+    .result-table tr:nth-child(even) { background-color: #f9f9f9; }
+    .no-results { text-align: center; color: #666; margin-top: 20px; padding: 20px; }
+
+    @media (max-width: 600px) {
+      .row, .row-3, .auto-info-box, .photo-upload-grid { grid-template-columns: 1fr; }
+      .tabs { flex-wrap: wrap; }
+      .tab { min-width: calc(50% - 5px); border-radius: 8px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>📋 TBM-KY 通報系統</h1>
+
+  <div class="sheet-link-container">
+    <a href="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit" target="_blank" class="sheet-link-btn">
+      📊 查看完整資料 (Google Sheet)
+    </a>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('form', event)">📋 通報填寫</button>
+    <button class="tab" onclick="switchTab('query', event)">🔍 查詢記錄</button>
+  </div>
+
+  <!-- ══════════════════ 通報填寫 ══════════════════ -->
+  <div id="formFormContainer" class="form-container active">
+    <div class="steps">
+      <div class="step on" id="step1"><div class="step-dot" data-num="1">1</div><div class="step-txt">填寫資料</div></div>
+      <div class="step-line" id="line1"></div>
+      <div class="step" id="step2"><div class="step-dot" data-num="2">2</div><div class="step-txt">上傳照片</div></div>
+      <div class="step-line" id="line2"></div>
+      <div class="step" id="step3"><div class="step-dot" data-num="3">3</div><div class="step-txt">送出完成</div></div>
+    </div>
+
+    <!-- 子頁面 A：資料填寫 -->
+    <div id="pageA">
+
+      <div class="row">
+        <div class="form-group">
+          <label>公司名稱 *</label>
+          <input type="text" id="formCompany" placeholder="請輸入公司名稱" oninput="updateNextBtn()">
+        </div>
+        <div class="form-group">
+          <label>工作主辦部門 *</label>
+          <select id="formDept" onchange="updateNextBtn()">
+            <option value="">— 請選擇部門 —</option>
+            <option value="電氣一組">電氣一組</option>
+            <option value="電氣二組">電氣二組</option>
+            <option value="汽機組">汽機組</option>
+            <option value="氣渦組">氣渦組</option>
+            <option value="修配組">修配組</option>
+            <option value="供應組">供應組</option>
+            <option value="儀資一組">儀資一組</option>
+            <option value="儀資二組">儀資二組</option>
+            <option value="環化一組">環化一組</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>主辦部門承辦人 *</label>
+          <input type="text" id="formContact" placeholder="請輸入承辦人姓名" oninput="updateNextBtn()">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>TBM-KY 開會時間 * <span style="font-size:.8em;color:#c0392b">（請確實填寫）</span></label>
+          <input type="datetime-local" id="formMeetingTime" onchange="updateNextBtn()">
+        </div>
+        <div class="form-group">
+          <label>開會地點 *</label>
+          <input type="text" id="formLocation" placeholder="請填寫開會地點" oninput="updateNextBtn()">
+        </div>
+      </div>
+
+      <!-- ── 特種車輛（條件） ── -->
+      <div class="conditional-block" id="vehicleBlock">
+        <div class="conditional-header">
+          <label>🚛 今日是否使用特種車輛？</label>
+          <div class="toggle-group">
+            <button class="toggle-btn" id="vehicleYes" onclick="toggle('vehicle','yes')">是</button>
+            <button class="toggle-btn selected-no" id="vehicleNo" onclick="toggle('vehicle','no')">否</button>
+          </div>
+        </div>
+        <div class="sub-uploads" id="vehicleSub">
+          <p style="font-size:.82em;color:#555;margin-bottom:10px">請上傳：1. 車輛照片、2. 今日作業檢點表照片、3. 本月檢點表照片</p>
+        </div>
+      </div>
+
+      <!-- ── 局限空間（條件） ── -->
+      <div class="conditional-block" id="confinedBlock">
+        <div class="conditional-header">
+          <label>⚠️ 今日是否進行局限空間工作？</label>
+          <div class="toggle-group">
+            <button class="toggle-btn" id="confinedYes" onclick="toggle('confined','yes')">是</button>
+            <button class="toggle-btn selected-no" id="confinedNo" onclick="toggle('confined','no')">否</button>
+          </div>
+        </div>
+        <div class="sub-uploads" id="confinedSub">
+          <p style="font-size:.82em;color:#555;margin-bottom:10px">請上傳局限空間作業場所進入許可證照片</p>
+        </div>
+      </div>
+
+      <!-- ── 動火（條件） ── -->
+      <div class="conditional-block" id="hotworkBlock">
+        <div class="conditional-header">
+          <label>🔥 今日是否進行動火工作？</label>
+          <div class="toggle-group">
+            <button class="toggle-btn" id="hotworkYes" onclick="toggle('hotwork','yes')">是</button>
+            <button class="toggle-btn selected-no" id="hotworkNo" onclick="toggle('hotwork','no')">否</button>
+          </div>
+        </div>
+        <div class="sub-uploads" id="hotworkSub">
+          <p style="font-size:.82em;color:#555;margin-bottom:10px">請上傳動用火種工作許可證照片</p>
+        </div>
+      </div>
+
+      <button class="next-btn" id="btnNext" onclick="goToUpload()" disabled>
+        下一步：上傳照片 →
+      </button>
+    </div>
+
+    <!-- 子頁面 B：上傳 + 送出 -->
+    <div id="pageB" style="display:none">
+      <div class="auto-info-box" id="summaryBox">
+        <div class="ai-item"><div class="ai-lbl">公司名稱</div><div class="ai-val" id="s_company">—</div></div>
+        <div class="ai-item"><div class="ai-lbl">主辦部門</div><div class="ai-val" id="s_dept">—</div></div>
+        <div class="ai-item"><div class="ai-lbl">承辦人</div><div class="ai-val" id="s_contact">—</div></div>
+        <div class="ai-item"><div class="ai-lbl">開會時間</div><div class="ai-val" id="s_time">—</div></div>
+        <div class="ai-item"><div class="ai-lbl">開會地點</div><div class="ai-val" id="s_location">—</div></div>
+        <div class="ai-item"><div class="ai-lbl">特種車輛</div><div class="ai-val" id="s_vehicle">—</div></div>
+        <div class="ai-item"><div class="ai-lbl">局限空間／動火</div><div class="ai-val" id="s_flags">—</div></div>
+      </div>
+
+      <div id="uploadGrid"></div>
+
+      <button class="submit-btn" id="btnSubmit" onclick="generateAndSubmit()">
+        🚀 生成 PDF 並上傳送出
+      </button>
+      <div id="mainLoading" class="loading">⏳ 處理中，請稍候...</div>
+      <div id="mainMsg" class="status"></div>
+
+      <div id="pdfArea" class="pdf-preview-area">
+        <p style="color:#0f7b5a;font-weight:600;margin-bottom:8px">✅ PDF 已產生</p>
+        <button class="btn-preview" onclick="previewPDF()">👁 預覽 PDF</button>
+      </div>
+
+      <button class="back-btn" onclick="backToForm()">← 返回修改資料</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════ 查詢記錄 ══════════════════ -->
+  <div id="queryFormContainer" class="form-container">
+    <div class="row">
+      <div class="form-group">
+        <label>查詢日期</label>
+        <input type="date" id="queryDate">
+      </div>
+      <div class="form-group">
+        <label>工作主辦部門（選填）</label>
+        <select id="queryDept">
+          <option value="">— 全部 —</option>
+          <option value="電氣一組">電氣一組</option>
+          <option value="電氣二組">電氣二組</option>
+          <option value="汽機組">汽機組</option>
+          <option value="氣渦組">氣渦組</option>
+          <option value="修配組">修配組</option>
+          <option value="供應組">供應組</option>
+          <option value="儀資一組">儀資一組</option>
+          <option value="儀資二組">儀資二組</option>
+          <option value="環化一組">環化一組</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>公司名稱（選填）</label>
+        <input type="text" id="queryCompany" placeholder="關鍵字搜尋">
+      </div>
+      <div class="form-group">
+        <label>承辦人（選填）</label>
+        <input type="text" id="queryContact" placeholder="姓名關鍵字">
+      </div>
+    </div>
+    <button type="button" class="submit-btn" onclick="searchRecords()">🔍 查詢</button>
+    <div id="queryLoading" class="loading">⏳ 查詢中...</div>
+    <div id="queryResults"></div>
+  </div>
+</div>
+
+<script>
+  function switchTab(tab, event) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    document.querySelectorAll('.form-container').forEach(c => c.classList.remove('active'));
+    document.getElementById(tab + 'FormContainer').classList.add('active');
+  }
+</script>
+<script src="script_tbm_ky.js"></script>
+</body>
+</html>
