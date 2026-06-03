@@ -190,12 +190,26 @@ function buildMainUploadGrid() {
   const grid = document.getElementById('uploadGrid');
   if (!grid) return;
 
+  // 第二頁只顯示固定照片（條件照片已在第一頁就地上傳）
   const items = [...UPLOAD_ITEMS_FIXED];
-  if (S.vehicleOn)  items.push(...UPLOAD_ITEMS_VEHICLE);
-  if (S.confinedOn) items.push(...UPLOAD_ITEMS_CONFINED);
-  if (S.hotworkOn)  items.push(...UPLOAD_ITEMS_HOTWORK);
 
-  grid.innerHTML = `<div class="photo-upload-grid">` +
+  // 條件照片在第一頁已上傳，於此顯示已上傳數量提示
+  const condSummary = [];
+  if (S.vehicleOn)  condSummary.push(...UPLOAD_ITEMS_VEHICLE);
+  if (S.confinedOn) condSummary.push(...UPLOAD_ITEMS_CONFINED);
+  if (S.hotworkOn)  condSummary.push(...UPLOAD_ITEMS_HOTWORK);
+
+  let condHtml = '';
+  if (condSummary.length > 0) {
+    condHtml = `<div style="margin-bottom:14px;padding:12px 16px;background:#eef7f2;border:1px solid #a7d7bc;border-radius:8px;font-size:.88em;color:#1a5c38;font-weight:600;">
+      ✅ 條件照片已在上一步上傳：${condSummary.map(it => {
+        const count = (S.files[it.k] || []).length;
+        return `${it.label}（${count} 張）`;
+      }).join('、')}
+    </div>`;
+  }
+
+  grid.innerHTML = condHtml + `<div class="photo-upload-grid">` +
     items.map((item, i) => `
     <div id="mbox_${item.k}" class="upload-box"
          ondragover="event.preventDefault()" ondrop="onDrop(event,'${item.k}','m')">
@@ -249,6 +263,7 @@ function onFile(k, fl, prefix) {
 }
 
 function renderPreviews(k, prefix) {
+  // prefix='m' → 第二頁固定格；其他 → 第一頁條件格
   const pvId = prefix === 'm' ? `mpv_${k}` : `pv_${k}`;
   const el = document.getElementById(pvId);
   if (!el) return;
@@ -257,7 +272,7 @@ function renderPreviews(k, prefix) {
       ${f.type.startsWith('image/')
         ? `<img src="${URL.createObjectURL(f)}">`
         : `<div style="width:54px;height:54px;display:flex;align-items:center;justify-content:center;background:#eef2fc;font-size:1.1rem">📄</div>`}
-      <button class="rm-btn" onclick="rmFile('${k}',${i},'${prefix}')">✕</button>
+      <button class="rm-btn" onclick="rmFile('${k}',${i},'${prefix || ''}')">✕</button>
     </div>`).join('');
 }
 
