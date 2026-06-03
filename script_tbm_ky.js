@@ -246,18 +246,56 @@ function stepReset(id) {
   if (dot) dot.textContent = dot.dataset.num || '?';
 }
 
+// ================== 圖片壓縮 ==================
+// 選完圖後立即壓縮，S.files[k] 存壓縮後的 data URL（字串）
+function compressImage(file, maxWidth = 1200, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) { resolve(null); return; }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('讀取失敗'));
+    reader.onload  = e => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('圖片載入失敗'));
+      img.onload  = () => {
+        const scale  = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ================== 檔案處理 ==================
+// S.files[k] 現在存壓縮後的 data URL 字串陣列
 function onDrop(e, k, prefix) {
   e.preventDefault();
   if (e.dataTransfer.files.length) onFile(k, e.dataTransfer.files, prefix);
 }
 
-function onFile(k, fl, prefix) {
+async function onFile(k, fl, prefix) {
   if (!S.files[k]) S.files[k] = [];
-  Array.from(fl).forEach(f => S.files[k].push(f));
+
+  const boxId  = prefix === 'm' ? `mbox_${k}` : `box_${k}`;
+  const box    = document.getElementById(boxId);
+  const pvId   = prefix === 'm' ? `mpv_${k}`  : `pv_${k}`;
+  const pvEl   = document.getElementById(pvId);
+
+  // 壓縮中提示
+  if (pvEl) pvEl.innerHTML = `<span style="font-size:.72rem;color:#888">⏳ 壓縮中...</span>`;
+
+  for (const file of Array.from(fl)) {
+    try {
+      const dataUrl = await compressImage(file);
+      if (dataUrl) S.files[k].push(dataUrl);
+    } catch(e) { console.warn('壓縮失敗，略過:', e); }
+  }
+
   renderPreviews(k, prefix);
-  const boxId = prefix === 'm' ? `mbox_${k}` : `box_${k}`;
-  const box = document.getElementById(boxId);
   if (box) box.classList.toggle('has-file', S.files[k].length > 0);
   S.G_PDF_B64 = '';
 }
@@ -265,13 +303,12 @@ function onFile(k, fl, prefix) {
 function renderPreviews(k, prefix) {
   // prefix='m' → 第二頁固定格；其他 → 第一頁條件格
   const pvId = prefix === 'm' ? `mpv_${k}` : `pv_${k}`;
-  const el = document.getElementById(pvId);
+  const el   = document.getElementById(pvId);
   if (!el) return;
-  el.innerHTML = (S.files[k] || []).map((f, i) => `
+  // S.files[k] 現在是 data URL 字串陣列
+  el.innerHTML = (S.files[k] || []).map((dataUrl, i) => `
     <div class="thumb-wrap">
-      ${f.type.startsWith('image/')
-        ? `<img src="${URL.createObjectURL(f)}">`
-        : `<div style="width:54px;height:54px;display:flex;align-items:center;justify-content:center;background:#eef2fc;font-size:1.1rem">📄</div>`}
+      <img src="${dataUrl}">
       <button class="rm-btn" onclick="rmFile('${k}',${i},'${prefix || ''}')">✕</button>
     </div>`).join('');
 }
@@ -280,7 +317,7 @@ function rmFile(k, i, prefix) {
   S.files[k].splice(i, 1);
   renderPreviews(k, prefix);
   const boxId = prefix === 'm' ? `mbox_${k}` : `box_${k}`;
-  const box = document.getElementById(boxId);
+  const box   = document.getElementById(boxId);
   if (box) box.classList.toggle('has-file', (S.files[k]?.length || 0) > 0);
 }
 
@@ -361,11 +398,11 @@ async function generatePDF(f, items) {
   const TD = 'border:1px solid #cbd5e1;padding:7px 9px;vertical-align:top;font-size:11px';
   const W  = 750;
 
-  // 收集圖片 data URL
+  // 收集圖片 data URL（已在 onFile 時壓縮完成）
   const imgMap = {};
   for (const item of items) {
-    const files = (S.files[item.k] || []).filter(fi => fi.type?.startsWith('image/'));
-    imgMap[item.k] = files.length > 0 ? await Promise.all(files.map(fileToDataUrl)) : [];
+    // S.files[item.k] 現在是壓縮後的 data URL 字串陣列
+    imgMap[item.k] = (S.files[item.k] || []).filter(Boolean);
   }
 
   async function elToCanvas(el) {
@@ -474,14 +511,6 @@ async function generatePDF(f, items) {
   itemCanvases.forEach(c => place(c));
 
   return pdf.output('datauristring').split(',')[1];
-}
-
-function fileToDataUrl(file) {
-  return new Promise(res => {
-    const r = new FileReader();
-    r.onload = e => res(e.target.result);
-    r.readAsDataURL(file);
-  });
 }
 
 function previewPDF() {
