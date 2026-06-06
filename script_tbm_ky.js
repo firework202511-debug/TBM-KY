@@ -1,6 +1,5 @@
 // ================== 全域設定 ==================
 const CONFIG = {
-  // ⚠️ 改成你的 TBM-KY Worker 網址
   API_ENDPOINT: 'https://tbmky-api.firework202511.workers.dev',
 };
 
@@ -10,11 +9,12 @@ const UPLOAD_ITEMS_FIXED = [
   { k: 'tbm_process', label: 'TBM-KY 實施過程照片',   required: true },
 ];
 
-// 條件性照片（特種車輛）
+// 條件性照片（特種車輛）— 新增第4項：吊具檢查結果
 const UPLOAD_ITEMS_VEHICLE = [
   { k: 'vehicle_photo',   label: '特種車輛照片',                   required: true },
   { k: 'vehicle_daily',   label: '特種車輛今日作業檢點表（照片）', required: true },
   { k: 'vehicle_monthly', label: '特種車輛本月檢點表（照片）',     required: true },
+  { k: 'vehicle_crane',   label: '吊具檢查結果照片',               required: true },
 ];
 
 // 條件性照片（局限空間）
@@ -29,9 +29,9 @@ const UPLOAD_ITEMS_HOTWORK = [
 
 // 全域狀態
 const S = {
-  files:      {},     // 所有上傳圖片 { k: [File,...] }
-  fields:     null,   // 填寫的欄位
-  G_PDF_B64:  '',     // 最後生成的 PDF base64
+  files:      {},
+  fields:     null,
+  G_PDF_B64:  '',
   vehicleOn:  false,
   confinedOn: false,
   hotworkOn:  false,
@@ -51,20 +51,25 @@ function getTodayDateString() {
 }
 
 function val(id) { return document.getElementById(id)?.value || ''; }
-
-function setVal(id, v) {
-  const el = document.getElementById(id);
-  if (el && v != null) el.value = v;
-}
+function setVal(id, v) { const el = document.getElementById(id); if (el && v != null) el.value = v; }
 
 // ================== 必填驗證 → 下一步按鈕 ==================
 function updateNextBtn() {
-  const company     = val('formCompany').trim();
-  const dept        = val('formDept');
-  const contact     = val('formContact').trim();
-  const meetingTime = val('formMeetingTime');
-  const location    = val('formLocation').trim();
-  document.getElementById('btnNext').disabled = !(company && dept && contact && meetingTime && location);
+  const company       = val('formCompany').trim();
+  const dept          = val('formDept');
+  const contact       = val('formContact').trim();
+  const siteManager   = val('formSiteManager').trim();
+  const safetyOfficer = val('formSafetyOfficer').trim();
+  const meetingTime   = val('formMeetingTime');
+  const location      = val('formLocation').trim();
+
+  // 兩人不可同名驗證
+  const errEl = document.getElementById('safetyError');
+  const sameNameError = siteManager && safetyOfficer && siteManager === safetyOfficer;
+  if (errEl) errEl.style.display = sameNameError ? 'block' : 'none';
+
+  const allFilled = company && dept && contact && siteManager && safetyOfficer && meetingTime && location;
+  document.getElementById('btnNext').disabled = !(allFilled && !sameNameError);
 }
 
 // ================== 條件開關（是/否）==================
@@ -85,7 +90,6 @@ function toggle(type, choice) {
   } else {
     sub.classList.remove('show');
     block.classList.remove('active-block');
-    // 清除已上傳的該類型檔案
     getItemsForType(type).forEach(it => { S.files[it.k] = []; });
   }
 }
@@ -134,28 +138,41 @@ function buildUploadBoxes(containerId, items) {
 
 // ================== 子頁面切換 ==================
 function goToUpload() {
-  const company     = val('formCompany').trim();
-  const dept        = val('formDept');
-  const contact     = val('formContact').trim();
-  const meetingTime = val('formMeetingTime');
-  const location    = val('formLocation').trim();
+  const company       = val('formCompany').trim();
+  const dept          = val('formDept');
+  const contact       = val('formContact').trim();
+  const siteManager   = val('formSiteManager').trim();
+  const safetyOfficer = val('formSafetyOfficer').trim();
+  const meetingTime   = val('formMeetingTime');
+  const location      = val('formLocation').trim();
 
-  if (!company)     { alert('請填寫公司名稱'); return; }
-  if (!dept)        { alert('請選擇工作主辦部門'); return; }
-  if (!contact)     { alert('請填寫主辦部門承辦人'); return; }
-  if (!meetingTime) { alert('請填寫 TBM-KY 開會時間'); return; }
-  if (!location)    { alert('請填寫開會地點'); return; }
+  if (!company)       { alert('請填寫公司名稱'); return; }
+  if (!dept)          { alert('請選擇工作主辦部門'); return; }
+  if (!contact)       { alert('請填寫主辦部門承辦人'); return; }
+  if (!siteManager)   { alert('請填寫工地負責人'); return; }
+  if (!safetyOfficer) { alert('請填寫職安人員'); return; }
+  if (siteManager === safetyOfficer) {
+    alert('工地負責人與職安人員不可為同一人，請重新填寫');
+    return;
+  }
+  if (!meetingTime)   { alert('請填寫 TBM-KY 開會時間'); return; }
+  if (!location)      { alert('請填寫開會地點'); return; }
 
-  S.fields = { company, dept, contact, meetingTime, location,
-    vehicleOn: S.vehicleOn, confinedOn: S.confinedOn, hotworkOn: S.hotworkOn };
+  S.fields = {
+    company, dept, contact, siteManager, safetyOfficer,
+    meetingTime, location,
+    vehicleOn: S.vehicleOn, confinedOn: S.confinedOn, hotworkOn: S.hotworkOn,
+  };
 
   // 更新摘要欄
-  document.getElementById('s_company').textContent  = company;
-  document.getElementById('s_dept').textContent     = dept;
-  document.getElementById('s_contact').textContent  = contact;
-  document.getElementById('s_time').textContent     = meetingTime.replace('T', ' ');
-  document.getElementById('s_location').textContent = location;
-  document.getElementById('s_vehicle').textContent  = S.vehicleOn  ? '✅ 是' : '❌ 否';
+  document.getElementById('s_company').textContent       = company;
+  document.getElementById('s_dept').textContent          = dept;
+  document.getElementById('s_contact').textContent       = contact;
+  document.getElementById('s_siteManager').textContent   = siteManager;
+  document.getElementById('s_safetyOfficer').textContent = safetyOfficer;
+  document.getElementById('s_time').textContent          = meetingTime.replace('T', ' ');
+  document.getElementById('s_location').textContent      = location;
+  document.getElementById('s_vehicle').textContent       = S.vehicleOn ? '✅ 是' : '❌ 否';
 
   const flags = [];
   if (S.confinedOn) flags.push('局限空間✅');
@@ -163,7 +180,6 @@ function goToUpload() {
   if (!flags.length) flags.push('均無');
   document.getElementById('s_flags').textContent = flags.join(' ');
 
-  // 建立主上傳格子
   buildMainUploadGrid();
 
   document.getElementById('pageA').style.display = 'none';
@@ -178,7 +194,6 @@ function backToForm() {
   stepActive('step1'); stepReset('step2'); stepReset('step3');
   document.getElementById('line1').classList.remove('ok');
   document.getElementById('line2').classList.remove('ok');
-  // 重設送出按鈕狀態
   const btn = document.getElementById('btnSubmit');
   btn.disabled = false;
   btn.textContent = '🚀 生成 PDF 並上傳送出';
@@ -190,10 +205,9 @@ function buildMainUploadGrid() {
   const grid = document.getElementById('uploadGrid');
   if (!grid) return;
 
-  // 第二頁只顯示固定照片（條件照片已在第一頁就地上傳）
+  // 第二頁只顯示固定照片，條件照片已在第一頁上傳
   const items = [...UPLOAD_ITEMS_FIXED];
 
-  // 條件照片在第一頁已上傳，於此顯示已上傳數量提示
   const condSummary = [];
   if (S.vehicleOn)  condSummary.push(...UPLOAD_ITEMS_VEHICLE);
   if (S.confinedOn) condSummary.push(...UPLOAD_ITEMS_CONFINED);
@@ -247,7 +261,6 @@ function stepReset(id) {
 }
 
 // ================== 圖片壓縮 ==================
-// 選完圖後立即壓縮，S.files[k] 存壓縮後的 data URL（字串）
 function compressImage(file, maxWidth = 1200, quality = 0.72) {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) { resolve(null); return; }
@@ -271,7 +284,6 @@ function compressImage(file, maxWidth = 1200, quality = 0.72) {
 }
 
 // ================== 檔案處理 ==================
-// S.files[k] 現在存壓縮後的 data URL 字串陣列
 function onDrop(e, k, prefix) {
   e.preventDefault();
   if (e.dataTransfer.files.length) onFile(k, e.dataTransfer.files, prefix);
@@ -280,12 +292,8 @@ function onDrop(e, k, prefix) {
 async function onFile(k, fl, prefix) {
   if (!S.files[k]) S.files[k] = [];
 
-  const boxId  = prefix === 'm' ? `mbox_${k}` : `box_${k}`;
-  const box    = document.getElementById(boxId);
-  const pvId   = prefix === 'm' ? `mpv_${k}`  : `pv_${k}`;
-  const pvEl   = document.getElementById(pvId);
-
-  // 壓縮中提示
+  const pvId = prefix === 'm' ? `mpv_${k}` : `pv_${k}`;
+  const pvEl = document.getElementById(pvId);
   if (pvEl) pvEl.innerHTML = `<span style="font-size:.72rem;color:#888">⏳ 壓縮中...</span>`;
 
   for (const file of Array.from(fl)) {
@@ -296,16 +304,16 @@ async function onFile(k, fl, prefix) {
   }
 
   renderPreviews(k, prefix);
+  const boxId = prefix === 'm' ? `mbox_${k}` : `box_${k}`;
+  const box = document.getElementById(boxId);
   if (box) box.classList.toggle('has-file', S.files[k].length > 0);
   S.G_PDF_B64 = '';
 }
 
 function renderPreviews(k, prefix) {
-  // prefix='m' → 第二頁固定格；其他 → 第一頁條件格
   const pvId = prefix === 'm' ? `mpv_${k}` : `pv_${k}`;
   const el   = document.getElementById(pvId);
   if (!el) return;
-  // S.files[k] 現在是 data URL 字串陣列
   el.innerHTML = (S.files[k] || []).map((dataUrl, i) => `
     <div class="thumb-wrap">
       <img src="${dataUrl}">
@@ -317,7 +325,7 @@ function rmFile(k, i, prefix) {
   S.files[k].splice(i, 1);
   renderPreviews(k, prefix);
   const boxId = prefix === 'm' ? `mbox_${k}` : `box_${k}`;
-  const box   = document.getElementById(boxId);
+  const box = document.getElementById(boxId);
   if (box) box.classList.toggle('has-file', (S.files[k]?.length || 0) > 0);
 }
 
@@ -353,10 +361,10 @@ async function generateAndSubmit() {
     document.getElementById('pdfArea').classList.add('show');
 
     msgEl.textContent = '☁️ 正在上傳 PDF...';
-    // 檔名格式：YYYYMMDD-公司名-部門名.pdf
-    const dateStr   = getTodayDateString().replace(/-/g, '');
-    const safeName  = (s) => s.replace(/[\s\/\\:*?"<>|]/g, '_');
-    const filename  = `${dateStr}-${safeName(f.company)}-${safeName(f.dept)}.pdf`;
+    const dateStr  = getTodayDateString().replace(/-/g, '');
+    const safeName = s => s.replace(/[\s\/\\:*?"<>|]/g, '_');
+    const filename = `${dateStr}-${safeName(f.company)}-${safeName(f.dept)}.pdf`;
+
     const uploadRes = await fetch(`${CONFIG.API_ENDPOINT}/api/upload-pdf`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -398,10 +406,9 @@ async function generatePDF(f, items) {
   const TD = 'border:1px solid #cbd5e1;padding:7px 9px;vertical-align:top;font-size:11px';
   const W  = 750;
 
-  // 收集圖片 data URL（已在 onFile 時壓縮完成）
+  // 收集圖片 data URL（已在 onFile 壓縮完成）
   const imgMap = {};
   for (const item of items) {
-    // S.files[item.k] 現在是壓縮後的 data URL 字串陣列
     imgMap[item.k] = (S.files[item.k] || []).filter(Boolean);
   }
 
@@ -416,7 +423,6 @@ async function generatePDF(f, items) {
     return c;
   }
 
-  // ── 表頭 ──
   const flagVehicle  = f.vehicleOn  ? '✅ 是' : '❌ 否';
   const flagConfined = f.confinedOn ? '✅ 是' : '❌ 否';
   const flagHotwork  = f.hotworkOn  ? '✅ 是' : '❌ 否';
@@ -444,6 +450,12 @@ async function generatePDF(f, items) {
         <td style="${TD}">${f.contact || '—'}</td>
       </tr>
       <tr>
+        <th style="${TH}">工地負責人</th>
+        <td style="${TD}">${f.siteManager || '—'}</td>
+        <th style="${TH}">職安人員</th>
+        <td style="${TD}">${f.safetyOfficer || '—'}</td>
+      </tr>
+      <tr>
         <th style="${TH}">TBM-KY 開會時間</th>
         <td style="${TD};font-weight:700;color:#c0392b">${(f.meetingTime || '').replace('T', ' ')}</td>
         <th style="${TH}">開會地點</th>
@@ -464,7 +476,6 @@ async function generatePDF(f, items) {
 
   const headerCanvas = await elToCanvas(headerEl);
 
-  // ── 各照片項目 ──
   const itemCanvases = [];
   for (const item of items) {
     const srcs = imgMap[item.k] || [];
@@ -493,9 +504,8 @@ async function generatePDF(f, items) {
     }
   }
 
-  // ── 組合 PDF ──
   const { jsPDF } = window.jspdf;
-  const pdf   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pdf    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const MARGIN = 8, A4_W = 210, A4_H = 297;
   const PW_MM  = A4_W - MARGIN * 2;
   let curY     = MARGIN;
@@ -555,8 +565,10 @@ async function searchRecords() {
     const flag = v => v ? '✅' : '❌';
     let html = `<table class="result-table">
       <thead><tr>
-        <th>公司名稱</th><th>主辦部門</th><th>承辦人</th><th>開會時間</th>
-        <th>地點</th><th>特種車輛</th><th>局限空間</th><th>動火</th><th>PDF</th>
+        <th>公司名稱</th><th>主辦部門</th><th>承辦人</th>
+        <th>工地負責人</th><th>職安人員</th>
+        <th>開會時間</th><th>地點</th>
+        <th>特種車輛</th><th>局限空間</th><th>動火</th><th>PDF</th>
       </tr></thead><tbody>`;
 
     json.data.forEach(row => {
@@ -564,11 +576,13 @@ async function searchRecords() {
         ? `<a href="${row.pdfUrl}" target="_blank" style="color:#1a5c38;font-weight:600;">📄 查看</a>`
         : '—';
       html += `<tr>
-        <td>${row.company  || '—'}</td>
-        <td>${row.dept     || '—'}</td>
-        <td>${row.contact  || '—'}</td>
-        <td>${(row.meetingTime || '').replace('T', ' ')}</td>
-        <td>${row.location || '—'}</td>
+        <td>${row.company       || '—'}</td>
+        <td>${row.dept          || '—'}</td>
+        <td>${row.contact       || '—'}</td>
+        <td>${row.siteManager   || '—'}</td>
+        <td>${row.safetyOfficer || '—'}</td>
+        <td>${(row.meetingTime  || '').replace('T', ' ')}</td>
+        <td>${row.location      || '—'}</td>
         <td style="text-align:center">${flag(row.vehicleOn)}</td>
         <td style="text-align:center">${flag(row.confinedOn)}</td>
         <td style="text-align:center">${flag(row.hotworkOn)}</td>
