@@ -287,7 +287,7 @@
   <h1>📋 TBM-KY 通報系統</h1>
 
   <div class="sheet-link-container">
-    <a href="https://docs.google.com/spreadsheets/d/11tBmOznWS1a0hBq7tG4sT-KRmeZIVHHdlMQstv86iWQ/edit?gid=0#gid=0" target="_blank" class="sheet-link-btn">
+    <a href="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit" target="_blank" class="sheet-link-btn">
       📊 查看完整資料 (Google Sheet)
     </a>
   </div>
@@ -322,17 +322,12 @@
             <option value="電氣一組">電氣一組</option>
             <option value="電氣二組">電氣二組</option>
             <option value="汽機組">汽機組</option>
-            <option value="熱機組">熱機組</option>
             <option value="氣渦組">氣渦組</option>
             <option value="修配組">修配組</option>
-            <option value="機械組">機械組</option>
             <option value="供應組">供應組</option>
             <option value="儀資一組">儀資一組</option>
             <option value="儀資二組">儀資二組</option>
-            <option value="儀資三組">儀資三組</option>
             <option value="環化一組">環化一組</option>
-            <option value="環化二組">環化二組</option>
-            <option value="工安組">工安組</option>
           </select>
         </div>
       </div>
@@ -342,13 +337,25 @@
           <label>主辦部門承辦人 *</label>
           <input type="text" id="formContact" placeholder="請輸入承辦人姓名" oninput="updateNextBtn()">
         </div>
+        <div class="form-group">
+          <label>工地負責人 *</label>
+          <input type="text" id="formSiteManager" placeholder="請輸入工地負責人姓名" oninput="updateNextBtn()">
+        </div>
       </div>
 
       <div class="row">
         <div class="form-group">
+          <label>職安人員 * <span style="font-size:.78em;color:#c0392b">（不可與工地負責人同名）</span></label>
+          <input type="text" id="formSafetyOfficer" placeholder="請輸入職安人員姓名" oninput="updateNextBtn()">
+          <div id="safetyError" style="display:none;margin-top:5px;font-size:.78em;color:#c0392b;font-weight:600;">⚠️ 職安人員不可與工地負責人同名</div>
+        </div>
+        <div class="form-group">
           <label>TBM-KY 開會時間 * <span style="font-size:.8em;color:#c0392b">（請確實填寫）</span></label>
           <input type="datetime-local" id="formMeetingTime" onchange="updateNextBtn()">
         </div>
+      </div>
+
+      <div class="row">
         <div class="form-group">
           <label>開會地點 *</label>
           <input type="text" id="formLocation" placeholder="請填寫開會地點" oninput="updateNextBtn()">
@@ -365,7 +372,7 @@
           </div>
         </div>
         <div class="sub-uploads" id="vehicleSub">
-          <p style="font-size:.82em;color:#555;margin-bottom:10px">請上傳：1. 車輛照片、2. 今日作業檢點表照片、3. 本月檢點表照片</p>
+          <p style="font-size:.82em;color:#555;margin-bottom:10px">請上傳：1. 車輛照片、2. 今日作業檢點表照片、3. 本月檢點表照片、4. 吊具檢查結果照片</p>
         </div>
       </div>
 
@@ -408,6 +415,8 @@
         <div class="ai-item"><div class="ai-lbl">公司名稱</div><div class="ai-val" id="s_company">—</div></div>
         <div class="ai-item"><div class="ai-lbl">主辦部門</div><div class="ai-val" id="s_dept">—</div></div>
         <div class="ai-item"><div class="ai-lbl">承辦人</div><div class="ai-val" id="s_contact">—</div></div>
+        <div class="ai-item"><div class="ai-lbl">工地負責人</div><div class="ai-val" id="s_siteManager">—</div></div>
+        <div class="ai-item"><div class="ai-lbl">職安人員</div><div class="ai-val" id="s_safetyOfficer">—</div></div>
         <div class="ai-item"><div class="ai-lbl">開會時間</div><div class="ai-val" id="s_time">—</div></div>
         <div class="ai-item"><div class="ai-lbl">開會地點</div><div class="ai-val" id="s_location">—</div></div>
         <div class="ai-item"><div class="ai-lbl">特種車輛</div><div class="ai-val" id="s_vehicle">—</div></div>
@@ -441,21 +450,16 @@
       <div class="form-group">
         <label>工作主辦部門（選填）</label>
         <select id="queryDept">
-          <option value="">— 請選擇部門 —</option>
-            <option value="電氣一組">電氣一組</option>
-            <option value="電氣二組">電氣二組</option>
-            <option value="汽機組">汽機組</option>
-            <option value="熱機組">熱機組</option>
-            <option value="氣渦組">氣渦組</option>
-            <option value="修配組">修配組</option>
-            <option value="機械組">機械組</option>
-            <option value="供應組">供應組</option>
-            <option value="儀資一組">儀資一組</option>
-            <option value="儀資二組">儀資二組</option>
-            <option value="儀資三組">儀資三組</option>
-            <option value="環化一組">環化一組</option>
-            <option value="環化二組">環化二組</option>
-            <option value="工安組">工安組</option>
+          <option value="">— 全部 —</option>
+          <option value="電氣一組">電氣一組</option>
+          <option value="電氣二組">電氣二組</option>
+          <option value="汽機組">汽機組</option>
+          <option value="氣渦組">氣渦組</option>
+          <option value="修配組">修配組</option>
+          <option value="供應組">供應組</option>
+          <option value="儀資一組">儀資一組</option>
+          <option value="儀資二組">儀資二組</option>
+          <option value="環化一組">環化一組</option>
         </select>
       </div>
     </div>
